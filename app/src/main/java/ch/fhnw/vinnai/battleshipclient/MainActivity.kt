@@ -5,10 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import ch.fhnw.vinnai.battleshipclient.audio.SoundManager
 import ch.fhnw.vinnai.battleshipclient.ui.theme.BattleshipCarrotTheme
+import ch.fhnw.vinnai.battleshipclient.viewmodel.BattleshipViewModel
 
-// Use 10.0.2.2 to access the host's localhost from the Android emulator
-const val DEFAULT_BASE_URL = "http://192.168.1.76:50003"
+const val DEFAULT_BASE_URL = "http://brad-home.ch:50003"
 
 class MainActivity : ComponentActivity() {
     private val viewModel: BattleshipViewModel by viewModels()
@@ -22,7 +23,10 @@ class MainActivity : ComponentActivity() {
             BattleshipCarrotTheme {
                 BattleshipApp(
                     viewModel = viewModel,
-                    onTryFindCarrot = { soundManager.playDig() }
+                    onTryFindCarrot = { soundManager.playDig() },
+                    onEnemyShipHit = { soundManager.playCarrotEat() },
+                    onGameWon = { soundManager.playWin() },
+                    onGameLost = { soundManager.playLose() }
                 )
             }
         }

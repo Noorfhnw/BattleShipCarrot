@@ -25,8 +25,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ch.fhnw.vinnai.battleshipclient.BattleshipViewModel
-import com.example.battleshipcarrot.R
+import ch.fhnw.vinnai.battleshipclient.R
+import ch.fhnw.vinnai.battleshipclient.viewmodel.BattleshipViewModel
 
 private const val GRID_SIZE = 10
 private val ROW_LABELS = ('A'..'J').toList()
@@ -44,6 +44,7 @@ private const val CARROT_CONTENT_DESCRIPTION = "yummy carrot"
 
 @Composable
 fun ShipPlacementScreen(viewModel: BattleshipViewModel) {
+    val uiState = viewModel.uiState
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -85,23 +86,32 @@ fun ShipPlacementScreen(viewModel: BattleshipViewModel) {
                 fontSize = 18.sp
             )
             Text(
-                text = "Orientation: ${if (viewModel.isHorizontal) "Horizontal ↔" else "Vertical ↕"}",
+                text = "Orientation: ${if (uiState.isHorizontal) "Horizontal ↔" else "Vertical ↕"}",
                 color = PRIMARY_TEXT_COLOR
             )
         } else {
+            val placementStatusText = if (uiState.isJoining || uiState.hasJoined) {
+                "Waiting for opponent..."
+            } else {
+                "All carrots planted!\nReady to Join the Game"
+            }
             Text(
-                text = "   All carrots planted!\nReady to Join the Game",
-                color = Color.Green,
+                text = placementStatusText,
+                color = if (uiState.isJoining || uiState.hasJoined) {
+                    HIGHLIGHT_TEXT_COLOR
+                } else {
+                    Color.Green
+                },
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
             )
         }
 
         // Error message
-        if (viewModel.placementErrorMessage.isNotEmpty()) {
+        if (uiState.placementErrorMessage.isNotEmpty()) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = viewModel.placementErrorMessage,
+                text = uiState.placementErrorMessage,
                 color = Color.Red,
                 fontWeight = FontWeight.Bold
             )
@@ -110,6 +120,7 @@ fun ShipPlacementScreen(viewModel: BattleshipViewModel) {
         Spacer(modifier = Modifier.height(8.dp))
 
         // Control buttons
+        val placementLocked = uiState.isJoining || uiState.hasJoined
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -119,18 +130,18 @@ fun ShipPlacementScreen(viewModel: BattleshipViewModel) {
                 enabled = currentShip != null,
                 colors = ButtonDefaults.buttonColors(containerColor = ORIENTATION_BUTTON_COLOR)
             ) {
-                Text(if (viewModel.isHorizontal) "↔ Horizontal" else "↕ Vertical")
+                Text(if (uiState.isHorizontal) "↔ Horizontal" else "↕ Vertical")
             }
             Button(
                 onClick = { viewModel.undoLastShip() },
-                enabled = viewModel.placedShips.isNotEmpty(),
+                enabled = uiState.placedShips.isNotEmpty() && !placementLocked,
                 colors = ButtonDefaults.buttonColors(containerColor = UNDO_BUTTON_COLOR)
             ) {
                 Text("Undo")
             }
             Button(
                 onClick = { viewModel.resetPlacement() },
-                enabled = viewModel.placedShips.isNotEmpty(),
+                enabled = uiState.placedShips.isNotEmpty() && !placementLocked,
                 colors = ButtonDefaults.buttonColors(containerColor = RESET_BUTTON_COLOR)
             ) {
                 Text("🔄 Reset")
@@ -147,8 +158,8 @@ fun ShipPlacementScreen(viewModel: BattleshipViewModel) {
         // Ship list summary
         Text("Ships:", color = PRIMARY_TEXT_COLOR, fontWeight = FontWeight.Bold)
         ShipType.entries.forEachIndexed { index, type ->
-            val placed = index < viewModel.currentShipIndex
-            val current = index == viewModel.currentShipIndex
+            val placed = index < uiState.currentShipIndex
+            val current = index == uiState.currentShipIndex
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -210,4 +221,3 @@ private fun BoardAxisLabel(label: String) {
         Text(label, fontWeight = FontWeight.Bold, color = PRIMARY_TEXT_COLOR)
     }
 }
-

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.battleshipcarrot"
+    namespace = "ch.fhnw.vinnai.battleshipclient"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.battleshipcarrot"
+        applicationId = "ch.fhnw.vinnai.battleshipclient"
         minSdk = 27
         targetSdk = 36
         versionCode = 1
@@ -36,6 +36,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

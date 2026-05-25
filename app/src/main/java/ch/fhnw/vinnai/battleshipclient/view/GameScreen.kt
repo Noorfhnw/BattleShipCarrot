@@ -25,8 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ch.fhnw.vinnai.battleshipclient.BattleshipViewModel
-import com.example.battleshipcarrot.R
+import ch.fhnw.vinnai.battleshipclient.viewmodel.BattleshipViewModel
+import ch.fhnw.vinnai.battleshipclient.R
 
 private const val GRID_SIZE = 10
 private val ROW_LABELS = ('A'..'J').toList()
@@ -38,6 +38,7 @@ fun GameScreen(
     viewModel: BattleshipViewModel,
     onTryFindCarrot: () -> Unit = {}
 ) {
+    val uiState = viewModel.uiState
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -61,9 +62,9 @@ fun GameScreen(
             )
         }
 
-        if (viewModel.joinedGameId.isNotBlank()) {
+        if (uiState.joinedGameId.isNotBlank()) {
             Text(
-                text = "Game ID: ${viewModel.joinedGameId}",
+                text = "Game ID: ${uiState.joinedGameId}",
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
@@ -72,8 +73,8 @@ fun GameScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Game Over banner
-        if (viewModel.gameOver) {
-            val won = viewModel.didIWin == true
+        if (uiState.gameOver) {
+            val won = uiState.didIWin == true
             val bannerColor = if (won) Color(0xFF4CAF50) else Color(0xFFF44336)
             val bannerText = if (won) "You Won!" else "You Lost!"
 
@@ -99,11 +100,11 @@ fun GameScreen(
 
         Text(
             text = when {
-                viewModel.gameOver -> "Game Over"
-                viewModel.isMyTurn -> "Your Turn! (Attack Opponent's Board)"
+                uiState.gameOver -> "Game Over"
+                uiState.isMyTurn -> "Your Turn! (Attack Opponent's Board)"
                 else -> "Waiting for Opponent..."
             },
-            color = if (viewModel.gameOver) Color.White else Color.Yellow,
+            color = if (uiState.gameOver) Color.White else Color.Yellow,
             fontWeight = FontWeight.Bold
         )
 
@@ -114,10 +115,10 @@ fun GameScreen(
             color = Color.White,
             fontWeight = FontWeight.Bold
         )
-        if (viewModel.sunkEnemyShips.isEmpty()) {
+        if (uiState.sunkEnemyShips.isEmpty()) {
             Text(text = stringResource(R.string.sunk_enemy_carrots_none), color = Color(0xFFFFF59D))
         } else {
-            Text(text = viewModel.sunkEnemyShips.joinToString("\n") { "- $it" }, color = Color(0xFFFFF59D))
+            Text(text = uiState.sunkEnemyShips.joinToString("\n") { "- $it" }, color = Color(0xFFFFF59D))
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -125,7 +126,7 @@ fun GameScreen(
         Text("Opponent's Board (Targeting)", color = Color.White)
         BoardView(grid = viewModel.opponentBoard) { row, col ->
             val isUntriedCell = viewModel.opponentBoard[row][col].value == CellState.EMPTY
-            if (viewModel.isMyTurn && !viewModel.gameOver && isUntriedCell) {
+            if (uiState.isMyTurn && !uiState.gameOver && isUntriedCell) {
                 onTryFindCarrot()
             }
             viewModel.fire(col, row)

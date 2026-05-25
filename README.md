@@ -15,6 +15,10 @@ It is a playful carrot-themed adaptation of Battleship, made for the 26FS Mobile
 
 The app has a custom welcome screen, themed UI elements (rabbit/carrot visuals, earthy color palette), background music, and a sound effect when firing.
 
+Sound effects are free Sound Effects by freesound_community from Pixabay:
+- Lose sound: 'Violin Win 3' Sound Effect by floraphonic from Pixabay
+- 
+
 ### What it looks like
 
 The UI has three main phases:
@@ -172,7 +176,7 @@ Update `BASE_URL` in `app/src/main/java/ch/fhnw/vinnai/battleshipclient/MainActi
 Current value in code:
 
 ```kotlin
-const val BASE_URL = "http://192.168.1.76:50003"
+const val BASE_URL = "http://brad-home.ch:50003"
 ```
 
 Notes:

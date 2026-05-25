@@ -21,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,7 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ch.fhnw.vinnai.battleshipclient.view.GameScreen
 import ch.fhnw.vinnai.battleshipclient.view.ShipPlacementScreen
-import com.example.battleshipcarrot.R
+import ch.fhnw.vinnai.battleshipclient.viewmodel.BattleshipViewModel
+import ch.fhnw.vinnai.battleshipclient.R
 
 private val BAR_PADDING = 8.dp
 private val FIELD_PADDING = 4.dp
@@ -52,9 +54,23 @@ private val START_BUTTON_TEXT_SIZE = 20.sp
 @Composable
 fun BattleshipApp(
     viewModel: BattleshipViewModel,
-    onTryFindCarrot: () -> Unit = {}
+    onTryFindCarrot: () -> Unit = {},
+    onEnemyShipHit: () -> Unit = {},
+    onGameWon: () -> Unit = {},
+    onGameLost: () -> Unit = {}
 ) {
     var showWelcome by rememberSaveable { mutableStateOf(true) }
+    val uiState = viewModel.uiState
+
+    LaunchedEffect(viewModel.soundEventVersion) {
+        when (viewModel.pendingSoundEffect) {
+            BattleshipViewModel.SoundEffect.CARROT_EAT -> onEnemyShipHit()
+            BattleshipViewModel.SoundEffect.WIN -> onGameWon()
+            BattleshipViewModel.SoundEffect.LOSE -> onGameLost()
+            null -> Unit
+        }
+        viewModel.consumePendingSoundEffect()
+    }
 
     if (showWelcome) {
         WelcomeScreen(onStartClick = { showWelcome = false })
@@ -67,13 +83,13 @@ fun BattleshipApp(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            val showConnectionControls = viewModel.allShipsPlaced && !viewModel.hasJoined
+            val showConnectionControls = viewModel.allShipsPlaced && !uiState.hasJoined
             if (showConnectionControls) {
                 ServerBar(viewModel)
                 JoinBar(viewModel)
             }
 
-            if (viewModel.hasJoined) {
+            if (uiState.hasJoined) {
                 GameScreen(
                     viewModel = viewModel,
                     onTryFindCarrot = onTryFindCarrot
@@ -89,7 +105,6 @@ fun BattleshipApp(
 private fun WelcomeScreen(onStartClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // 🌄Background
         Image(
             painter = painterResource(R.drawable.wooden_sign_in_sunlit_forest),
             contentDescription = null,
@@ -97,7 +112,7 @@ private fun WelcomeScreen(onStartClick: () -> Unit) {
             modifier = Modifier.fillMaxSize()
         )
 
-        //  TITLE (manually positioned ON the wood)
+        // title is manually positioned on the wood
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -109,7 +124,7 @@ private fun WelcomeScreen(onStartClick: () -> Unit) {
             }
         }
 
-        // ▶️START BUTTON (below wood)
+        //  start button below wood on the start screen
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -154,7 +169,6 @@ fun BubbleText(text: String) {
 
     Box(contentAlignment = Alignment.Center) {
 
-        // OUTLINE (fake stroke using multiple offsets)
         val outlineColor = Color.White
 
         listOf(
@@ -172,7 +186,7 @@ fun BubbleText(text: String) {
             )
         }
 
-        // SHADOW
+        // shadow
         Text(
             text = text,
             fontSize = fontSize,
@@ -201,7 +215,8 @@ fun BubbleText(text: String) {
 
 @Composable
 private fun ServerBar(viewModel: BattleshipViewModel) {
-    var serverAddressInput by rememberSaveable { mutableStateOf(viewModel.serverBaseUrl) }
+    val uiState = viewModel.uiState
+    var serverAddressInput by rememberSaveable { mutableStateOf(uiState.serverBaseUrl) }
 
     Row(
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -219,7 +234,7 @@ private fun ServerBar(viewModel: BattleshipViewModel) {
         Button(
             onClick = {
                 if (viewModel.updateServerBaseUrl(serverAddressInput)) {
-                    serverAddressInput = viewModel.serverBaseUrl
+                    serverAddressInput = viewModel.uiState.serverBaseUrl
                     viewModel.ping()
                 }
             },
@@ -227,16 +242,17 @@ private fun ServerBar(viewModel: BattleshipViewModel) {
         ) {
             Text("Ping")
         }
-        PingStatusIndicator(viewModel.pingResult)
+        PingStatusIndicator(uiState.pingResult)
     }
 }
 
 @Composable
 private fun JoinBar(viewModel: BattleshipViewModel) {
+    val uiState = viewModel.uiState
     var userName by rememberSaveable { mutableStateOf("") }
     var gameKey by rememberSaveable { mutableStateOf("") }
-    val canJoin = viewModel.pingResult == true && viewModel.allShipsPlaced && !viewModel.isJoining
-    val statusMessage = viewModel.statusMessage
+    val canJoin = uiState.pingResult == true && viewModel.allShipsPlaced && !uiState.isJoining
+    val statusMessage = uiState.statusMessage
 
     Column(
         modifier = Modifier

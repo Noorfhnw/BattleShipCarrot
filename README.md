@@ -24,38 +24,6 @@ The application can be run on an Android emulator or a physical device, after th
 
 Current default DEFAULT_BASE_URL is set to "http://brad-home.ch:50003", but it can be changed in-game.
 
-## Architecture and structure
-
-<img src="./images/architecture.png" alt="Architecture diagram"  />
-
-(diagram made in excalidraw)
-
-
-The app follows an **MVVM-style structure**:
-
-- **Compose UI** renders the screens and forwards user actions
-- **ViewModel** owns the game state and game rules
-- **Service/API layer** talks to the backend and maps JSON into app-friendly models
-- **Audio layer** handles background music and sound effects
-
-This split keeps the screen composables relatively focused on presentation, while the gameplay logic stays  in `BattleshipViewModel`.
-
-## Main code areas
-
-`*` = `app/src/main/java/ch/fhnw/vinnai/` 
-
-| Path                                                                                 | Responsibility |
-|--------------------------------------------------------------------------------------| --- |
-| `*/MainActivity.kt`                                                                  | Android entry point, creates the ViewModel, wires the app to audio, and forwards lifecycle events to the `SoundManager` |
-| `*/battleshipclient/BattleshipApp.kt`                                                | Root Compose flow; switches between welcome, placement, and game UI |
-| `*/battleshipclient/viewmodel/BattleshipViewModel.kt`                                | Core game logic: placement validation, join flow, turn flow, firing, enemy-fire handling, and UI state updates |
-| `app/src/main/java/ch/fhnw/vinnai/battleshipclient/viewmodel/BattleshipUiState.kt`   | Immutable UI-facing state model used by Compose |
-| `app/src/main/java/ch/fhnw/vinnai/battleshipclient/view/ShipPlacementScreen.kt`      | Placement UI and controls |
-| `app/src/main/java/ch/fhnw/vinnai/battleshipclient/view/GameScreen.kt`               | Match UI, boards, status, and result banner |
-| `app/src/main/java/ch/fhnw/vinnai/battleshipclient/service/BattleshipApi.kt`         | Low-level HTTP communication using `HttpURLConnection` |
-| `app/src/main/java/ch/fhnw/vinnai/battleshipclient/service/GameService.kt`           | Maps raw JSON responses into objects like `GameStatus` and `FireResult` |
-| `app/src/main/java/ch/fhnw/vinnai/battleshipclient/audio/SoundManager.kt`            | Background music and sound effect playback |
-
 ## User interface and flow
 
 ### 1. Welcome screen
@@ -116,6 +84,142 @@ When the game ends, the app displays a **You Won!** or **You Lost!** banner and 
 <img src="./images/gameplay.png" alt="Gameplay screen" width="250" />
 
 Gameplay screen on Google Pixel 9 Pro XL
+
+## Architecture and structure
+
+Architecturally, the app follows a **single-activity, multiple-screens** structure. The `MainActivity` hosts the entire app and manages the lifecycle for audio playback.
+
+<img src="./images/architecture.png" alt="Architecture diagram"  />
+
+(diagram made in excalidraw)
+
+### Component dependencies
+
+The main components and their dependencies are shown in the diagram below. 
+
+```mermaid
+flowchart LR
+	A[MainActivity] --> B[BattleshipApp]
+	A --> SM[SoundManager]
+	B --> W[WelcomeScreen]
+	B --> C[ShipPlacementScreen]
+	B --> D[GameScreen]
+	B --> E[BattleshipViewModel]
+	B -->|sound callbacks| SM
+	C --> E
+	D --> E
+	C --> GC[GridCell]
+	D --> GC
+	GC --> CS[CellState]
+	E --> CS
+	E --> SP[ShipType / PlacedShip]
+	E --> US[BattleshipUiState]
+	US --> SP
+	E --> GS[GameService]
+	GS --> SP
+	GS --> API[BattleshipApi]
+	API -->|HTTP| Server
+```
+
+The app follows an **MVVM-style structure**:
+
+- **Compose UI** renders the screens and forwards user actions
+- **ViewModel** owns the game state and game rules
+- **Service/API layer** talks to the backend and maps JSON into app-friendly models
+- **Audio layer** handles background music and sound effects
+
+This split keeps the screen composables relatively focused on presentation, while the gameplay logic stays  in `BattleshipViewModel`.
+
+### Sequence diagram for the main flows of the app, from pinging the server to joining a game and firing turns:
+
+```mermaid
+sequenceDiagram
+	participant UI as Compose UI
+	participant VM as BattleshipViewModel
+	participant GS as GameService
+	participant API as BattleshipApi
+	participant Server as Battleship Server
+
+	UI->>VM: ping()
+	VM->>GS: ping(url)
+	GS->>API: ping(url)
+	API->>Server: GET /ping
+	Server-->>API: 200 OK
+	API-->>GS: true
+	GS-->>VM: true
+	VM-->>UI: uiState.pingResult = true
+
+	UI->>VM: joinGame(player, gameKey)
+	note right of VM: ships already in uiState.placedShips
+	VM->>GS: joinGame(url, player, gameKey, ships)
+	GS->>API: joinGame(url, player, gameKey, ships)
+	API->>Server: POST /game/join
+	Server-->>API: JSON { isMyTurn, x?, y?, gameover }
+	API-->>GS: NetworkResult<JSONObject>
+	GS-->>VM: GameStatus
+	VM-->>UI: hasJoined=true, isMyTurn, myBoard
+
+	opt not my turn after join
+		VM->>GS: waitForEnemyFire(url, player, gameKey)
+		GS->>API: waitForEnemyFire(url, player, gameKey)
+		API->>Server: POST /game/enemyFire
+		Server-->>API: JSON { x, y, gameover }
+		API-->>GS: NetworkResult<JSONObject>
+		GS-->>VM: GameStatus
+		VM-->>UI: myBoard updated, isMyTurn=true
+	end
+
+	loop Turn-based play
+		UI->>VM: fire(x, y)
+		VM->>GS: fire(url, player, gameKey, x, y)
+		GS->>API: fire(url, player, gameKey, x, y)
+		API->>Server: POST /game/fire
+		Server-->>API: JSON { hit, shipsSunk, gameover }
+		API-->>GS: NetworkResult<JSONObject>
+		GS-->>VM: FireResult
+		alt gameover → win
+			VM-->>UI: gameOver=true, didIWin=true
+			note right of VM: emits WIN sound
+		else continue
+			VM-->>UI: opponentBoard updated, isMyTurn=false
+			opt hit
+				note right of VM: emits CARROT_EAT sound
+			end
+			VM->>GS: waitForEnemyFire(url, player, gameKey)
+			GS->>API: waitForEnemyFire(url, player, gameKey)
+			API->>Server: POST /game/enemyFire
+			Server-->>API: JSON { x, y, gameover }
+			API-->>GS: NetworkResult<JSONObject>
+			GS-->>VM: GameStatus
+			alt gameover → loss
+				VM-->>UI: gameOver=true, didIWin=false
+				note right of VM: emits LOSE sound
+			else continue
+				VM-->>UI: myBoard updated, isMyTurn=true
+			end
+		end
+	end
+```
+
+
+## File overview
+
+`*` = `app/src/main/java/ch/fhnw/vinnai/`
+
+| Path | Responsibility |
+| --- | --- |
+| `*/battleshipclient/MainActivity.kt` | Android entry point; instantiates `BattleshipViewModel` and `SoundManager`, passes sound callbacks (dig, carrot-eat, win, lose) to `BattleshipApp`, and forwards `onStart`/`onStop`/`onDestroy` to `SoundManager` |
+| `*/battleshipclient/BattleshipApp.kt` | Root Compose function; hosts `WelcomeScreen`, `ServerBar`, and `JoinBar`; routes to `ShipPlacementScreen` or `GameScreen`; observes `pendingSoundEffect` on the ViewModel and fires the sound callbacks received from `MainActivity` |
+| `*/battleshipclient/viewmodel/BattleshipViewModel.kt` | Core game logic and state owner; manages all three 10×10 boards (`placementBoard`, `myBoard`, `opponentBoard`); handles placement validation (bounds and overlap), join/fire/enemy-fire coroutine flows, URL normalisation, and sound effect emission |
+| `*/battleshipclient/viewmodel/BattleshipUiState.kt` | Immutable data class with all UI-facing state: server URL, ping result, turn flags, join/loading status, win/loss result, sunk ship list, placed ships, current ship index, orientation, and placement error message |
+| `*/battleshipclient/view/ShipPlacementScreen.kt` | Placement UI; renders the 10×10 grid via `PlacementBoardView`, shows current ship info, and provides orientation toggle, undo, and reset buttons alongside a ship list summary with carrot icons |
+| `*/battleshipclient/view/GameScreen.kt` | Match UI; renders the opponent targeting board and own defense board via `BoardView`, the game-over banner, turn status text, and the sunk-enemy-ships list |
+| `*/battleshipclient/view/GridCell.kt` | Single board cell composable; renders `EMPTY` (🌱), `SHIP` (carrot image), `HIT` (eaten-carrot image), and `MISS` (brown background) states with a click-enabled guard |
+| `*/battleshipclient/view/CellState.kt` | Enum for the four board cell states: `EMPTY`, `SHIP`, `HIT`, `MISS`; used by all three board arrays and `GridCell` |
+| `*/battleshipclient/view/ShipType.kt` | `ShipType` enum (Carrier → PatrolBoat, each with `size` and `displayName`) and `PlacedShip` data class (position, orientation, `occupiedCells()`) |
+| `*/battleshipclient/service/BattleshipApi.kt` | Low-level HTTP client; makes `GET /ping` and `POST /game/join\|fire\|enemyFire` requests via `HttpURLConnection`; returns `NetworkResult<JSONObject>` |
+| `*/battleshipclient/service/GameService.kt` | Delegates to `BattleshipApi` and maps raw `JSONObject` responses into `GameStatus`, `FireResult`, and `BoardShot`; resolves backend ship names to themed display names |
+| `*/battleshipclient/audio/SoundManager.kt` | Looping background music (`MediaPlayer`), dig and carrot-eat effects (`SoundPool`), and win/lose one-shot sounds (`MediaPlayer`); tied to the activity lifecycle via `resume`/`pause`/`release` |
 
 
 ## Game rules implemented in the client
@@ -234,18 +338,49 @@ The SoundManager implementation was created with the help of GitHub Copilot Plan
 
 ## Tests
 
-The repository includes a few unit and integration tests for:
+The repository includes unit and integration tests across three test classes:
 
-- `PlacedShipTest`
-- `BattleshipViewModelTest`
-- `GameServiceIntegrationTest`
+### `PlacedShipTest`
 
-These cover placement behavior and service-layer/backend interaction logic.
+Unit tests for `PlacedShip.occupiedCells()`:
 
-```
+| Test | Checks |
+| --- | --- |
+| `occupiedCells returns horizontal coordinates in order` | A horizontal `Destroyer` at (2,4) produces cells (2,4), (3,4), (4,4) |
+| `occupiedCells returns vertical coordinates in order` | A vertical `PatrolBoat` at (7,1) produces cells (7,1), (7,2) |
+
+### `BattleshipViewModelTest`
+
+Unit tests for the placement flow and input validation in `BattleshipViewModel`:
+
+| Test | Checks |
+| --- | --- |
+| `placeShipAt marks cells and advances to next ship` | Valid placement sets `SHIP` state on the correct board cells and increments `currentShipIndex` |
+| `placeShipAt rejects out of bounds placement` | A ship that would extend outside the 10×10 grid is rejected with an error message |
+| `placeShipAt rejects overlap with existing ship` | A ship placed on already-occupied cells is rejected with an overlap error |
+| `undoLastShip removes ship cells and rewinds placement progress` | Undo clears the cells and decrements `currentShipIndex` |
+| `resetPlacement clears board and placement state` | Reset sets all placed cells back to `EMPTY` and resets `currentShipIndex` to 0 |
+| `toggleOrientation flips horizontal flag` | Calling `toggleOrientation()` inverts `uiState.isHorizontal` |
+| `updateServerBaseUrl normalizes valid url and resets ping result` | A URL with leading/trailing spaces and a trailing slash is trimmed, stored, and `pingResult` is cleared |
+| `updateServerBaseUrl rejects invalid url` | A bare hostname without a scheme is rejected with `"Invalid server URL"` and `pingResult = false` |
+
+### `GameServiceIntegrationTest`
+
+Integration tests for `GameService` against a `MockWebServer` (OkHttp):
+
+| Test | Checks |
+| --- | --- |
+| `joinGame posts ships and maps game status response` | A mocked `/game/join` response with `x`, `y`, and `gameover` fields is correctly mapped to a `GameStatus` with `BoardShot(4, 7)` and `gameOver = false` |
+| `fire posts target and maps sunk ships response` | A mocked `/game/fire` response maps `hit`, `gameover`, and `shipsSunk` (raw server names `Destroyer`/`PatrolBoat`) to themed display names `Bad Bunny`/`Lil Hop` in `FireResult` |
+
 
 ## Credits
 
 - Sound effects: Pixabay / freesound_community and floraphonic
 - Audio edited with Audacity
 - Welcome screen background created with ChatGPT
+
+---
+
+<img src="./images/battleship-carrot.png" alt=""  />
+

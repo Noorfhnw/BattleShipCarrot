@@ -86,7 +86,7 @@ fun ShipPlacementScreen(viewModel: BattleshipViewModel) {
                 fontSize = 18.sp
             )
             Text(
-                text = "Orientation: ${if (uiState.isHorizontal) "Horizontal ↔" else "Vertical ↕"}",
+                text = "Orientation: ${if (uiState.isHorizontal) "Horizontal" else "Vertical"}",
                 color = PRIMARY_TEXT_COLOR
             )
         } else {
@@ -130,7 +130,7 @@ fun ShipPlacementScreen(viewModel: BattleshipViewModel) {
                 enabled = currentShip != null,
                 colors = ButtonDefaults.buttonColors(containerColor = ORIENTATION_BUTTON_COLOR)
             ) {
-                Text(if (uiState.isHorizontal) "↔ Horizontal" else "↕ Vertical")
+                Text(if (uiState.isHorizontal) "Horizontal" else "Vertical")
             }
             Button(
                 onClick = { viewModel.undoLastShip() },
@@ -144,7 +144,7 @@ fun ShipPlacementScreen(viewModel: BattleshipViewModel) {
                 enabled = uiState.placedShips.isNotEmpty() && !placementLocked,
                 colors = ButtonDefaults.buttonColors(containerColor = RESET_BUTTON_COLOR)
             ) {
-                Text("🔄 Reset")
+                Text("Reset")
             }
         }
 

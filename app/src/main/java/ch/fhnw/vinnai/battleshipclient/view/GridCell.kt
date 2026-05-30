@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import ch.fhnw.vinnai.battleshipclient.R
 
 @Composable
-fun GridCell(state: CellState, onClick: () -> Unit) {
+fun GridCell(state: CellState, onClick: () -> Unit, enabled: Boolean = true) {
     val backgroundColor = if (state == CellState.HIT || state == CellState.MISS) Color(0xFF795548) else Color(0xFF8BC34A)
     val imageRes = when (state) {
         CellState.HIT -> R.drawable.carrot_eaten
@@ -36,7 +36,7 @@ fun GridCell(state: CellState, onClick: () -> Unit) {
             .size(36.dp)
             .padding(2.dp)
             .background(backgroundColor)
-            .clickable { onClick() },
+            .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center
     ) {
         if (imageRes != null) {

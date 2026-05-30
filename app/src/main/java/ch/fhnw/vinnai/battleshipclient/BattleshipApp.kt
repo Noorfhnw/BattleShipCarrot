@@ -53,7 +53,7 @@ private val START_BUTTON_TEXT_SIZE = 20.sp
 
 @Composable
 fun BattleshipApp(
-    viewModel: BattleshipViewModel,
+        viewModel: BattleshipViewModel,
     onTryFindCarrot: () -> Unit = {},
     onEnemyShipHit: () -> Unit = {},
     onGameWon: () -> Unit = {},
@@ -251,7 +251,11 @@ private fun JoinBar(viewModel: BattleshipViewModel) {
     val uiState = viewModel.uiState
     var userName by rememberSaveable { mutableStateOf("") }
     var gameKey by rememberSaveable { mutableStateOf("") }
-    val canJoin = uiState.pingResult == true && viewModel.allShipsPlaced && !uiState.isJoining
+    val minimumLength = BattleshipViewModel.MIN_JOIN_NAME_LENGTH
+    val userNameTooShort = userName.isNotEmpty() && userName.trim().length < minimumLength
+    val gameKeyTooShort = gameKey.isNotEmpty() && gameKey.trim().length < minimumLength
+    val canJoin = uiState.pingResult == true && viewModel.allShipsPlaced && !uiState.isJoining &&
+        !userNameTooShort && !gameKeyTooShort && userName.trim().length >= minimumLength && gameKey.trim().length >= minimumLength
     val statusMessage = uiState.statusMessage
 
     Column(
@@ -268,12 +272,16 @@ private fun JoinBar(viewModel: BattleshipViewModel) {
             JoinInputField(
                 value = userName,
                 onValueChange = { userName = it },
-                label = "User"
+                label = "User",
+                isError = userNameTooShort,
+                supportingText = "Minimum 3 characters"
             )
             JoinInputField(
                 value = gameKey,
                 onValueChange = { gameKey = it },
-                label = "Game Key"
+                label = "Game Key",
+                isError = gameKeyTooShort,
+                supportingText = "Minimum 3 characters"
             )
         }
         Button(
@@ -304,12 +312,20 @@ private fun PingStatusIndicator(pingResult: Boolean?) {
 private fun RowScope.JoinInputField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String
+    label: String,
+    isError: Boolean = false,
+    supportingText: String? = null
 ) {
     TextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
+        isError = isError,
+        supportingText = {
+            if (isError && supportingText != null) {
+                Text(supportingText)
+            }
+        },
         modifier = Modifier
             .weight(1f)
             .padding(FIELD_PADDING)

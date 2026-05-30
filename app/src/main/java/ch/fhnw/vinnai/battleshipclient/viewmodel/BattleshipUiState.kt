@@ -8,6 +8,7 @@ data class BattleshipUiState(
     val statusMessage: String = "",
     val serverBaseUrl: String = DEFAULT_BASE_URL,
     val isMyTurn: Boolean = false,
+    val isFiringShot: Boolean = false,
     val gameOver: Boolean = false,
     val hasJoined: Boolean = false,
     val isJoining: Boolean = false,

@@ -101,6 +101,7 @@ fun GameScreen(
         Text(
             text = when {
                 uiState.gameOver -> "Game Over"
+                uiState.isFiringShot -> "Firing..."
                 uiState.isMyTurn -> "Your Turn! (Attack Opponent's Board)"
                 else -> "Waiting for Opponent..."
             },
@@ -124,12 +125,23 @@ fun GameScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text("Opponent's Board (Targeting)", color = Color.White)
-        BoardView(grid = viewModel.opponentBoard) { row, col ->
-            val isUntriedCell = viewModel.opponentBoard[row][col].value == CellState.EMPTY
-            if (uiState.isMyTurn && !uiState.gameOver && isUntriedCell) {
-                onTryFindCarrot()
+        BoardView(
+            grid = viewModel.opponentBoard,
+            cellEnabled = { row, col ->
+                uiState.isMyTurn &&
+                    !uiState.gameOver &&
+                    !uiState.isFiringShot &&
+                    viewModel.opponentBoard[row][col].value == CellState.EMPTY
             }
-            viewModel.fire(col, row)
+        ) { row, col ->
+            val isReadyToFire = uiState.isMyTurn &&
+                !uiState.gameOver &&
+                !uiState.isFiringShot &&
+                viewModel.opponentBoard[row][col].value == CellState.EMPTY
+            if (isReadyToFire) {
+                onTryFindCarrot()
+                viewModel.fire(col, row)
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -144,6 +156,7 @@ fun GameScreen(
 @Composable
 private fun BoardView(
     grid: BoardState,
+    cellEnabled: (Int, Int) -> Boolean = { _, _ -> true },
     onCellClick: (Int, Int) -> Unit
 ) {
     Column {
@@ -175,7 +188,8 @@ private fun BoardView(
                 for (col in 0 until GRID_SIZE) {
                     GridCell(
                         state = grid[row][col].value,
-                        onClick = { onCellClick(row, col) }
+                        onClick = { onCellClick(row, col) },
+                        enabled = cellEnabled(row, col)
                     )
                 }
             }

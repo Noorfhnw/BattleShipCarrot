@@ -17,7 +17,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 
-class BattleshipViewModel : ViewModel() {
+class BattleshipViewModel(
+    private val gameService: GameService = GameService()
+) : ViewModel() {
+    companion object {
+        const val MIN_JOIN_NAME_LENGTH = 3
+    }
+
     enum class SoundEffect {
         CARROT_EAT,
         WIN,
@@ -41,8 +47,6 @@ class BattleshipViewModel : ViewModel() {
     var placementBoard = Array(10) { Array(10) { mutableStateOf(CellState.EMPTY) } }
     var pendingSoundEffect by mutableStateOf<SoundEffect?>(null)
     var soundEventVersion by mutableIntStateOf(0)
-    private val gameService = GameService()
-
     val currentShipType: ShipType?
         get() = shipOrder.getOrNull(uiState.currentShipIndex)
 
@@ -141,8 +145,16 @@ class BattleshipViewModel : ViewModel() {
 
     fun joinGame(player: String, key: String) {
         if (uiState.isJoining) return
-        playerName = player
-        gameKey = key
+        val normalizedPlayer = player.trim()
+        val normalizedGameKey = key.trim()
+        val validationMessage = validateJoinInputs(normalizedPlayer, normalizedGameKey)
+        if (validationMessage != null) {
+            updateUiState { copy(statusMessage = validationMessage) }
+            return
+        }
+
+        playerName = normalizedPlayer
+        gameKey = normalizedGameKey
         pendingSoundEffect = null
         updateUiState {
             copy(
@@ -150,16 +162,22 @@ class BattleshipViewModel : ViewModel() {
                 gameOver = false,
                 didIWin = null,
                 isMyTurn = false,
+                isFiringShot = false,
                 sunkEnemyShips = emptyList(),
                 statusMessage = "Waiting for opponent…",
-                joinedGameId = key
+                joinedGameId = normalizedGameKey
             )
         }
         copyPlacementBoardToDefenseBoard()
 
         viewModelScope.launch {
             when (val result = withContext(Dispatchers.IO) {
-                gameService.joinGame(uiState.serverBaseUrl, player, key, uiState.placedShips)
+                gameService.joinGame(
+                    uiState.serverBaseUrl,
+                    normalizedPlayer,
+                    normalizedGameKey,
+                    uiState.placedShips
+                )
             }) {
                 is NetworkResult.Success -> {
                     applyGameStatus(result.value)
@@ -186,10 +204,11 @@ class BattleshipViewModel : ViewModel() {
     }
 
     fun fire(x: Int, y: Int) {
-        if (!uiState.isMyTurn || uiState.gameOver) return
+        if (!uiState.isMyTurn || uiState.gameOver || uiState.isFiringShot) return
         // Prevent firing on an already-shot cell
         if (opponentBoard[y][x].value != CellState.EMPTY) return
 
+        updateUiState { copy(isFiringShot = true) }
         viewModelScope.launch {
             when (val result = withContext(Dispatchers.IO) {
                 gameService.fire(uiState.serverBaseUrl, playerName, gameKey, x, y)
@@ -206,6 +225,7 @@ class BattleshipViewModel : ViewModel() {
                                 sunkEnemyShips = result.value.sunkEnemyShips,
                                 gameOver = true,
                                 didIWin = true,
+                                isFiringShot = false,
                                 statusMessage = "Shot fired"
                             )
                         }
@@ -214,6 +234,7 @@ class BattleshipViewModel : ViewModel() {
                             copy(
                                 sunkEnemyShips = result.value.sunkEnemyShips,
                                 isMyTurn = false,
+                                isFiringShot = false,
                                 statusMessage = "Shot fired"
                             )
                         }
@@ -221,7 +242,12 @@ class BattleshipViewModel : ViewModel() {
                     }
                 }
                 is NetworkResult.Error -> {
-                    updateUiState { copy(statusMessage = result.message) }
+                    updateUiState {
+                        copy(
+                            isFiringShot = false,
+                            statusMessage = result.message
+                        )
+                    }
                 }
             }
         }
@@ -234,10 +260,20 @@ class BattleshipViewModel : ViewModel() {
             }) {
                 is NetworkResult.Success -> {
                     applyGameStatus(result.value)
-                    updateUiState { copy(statusMessage = "Opponent moved") }
+                    updateUiState {
+                        copy(
+                            isFiringShot = false,
+                            statusMessage = "Opponent moved"
+                        )
+                    }
                 }
                 is NetworkResult.Error -> {
-                    updateUiState { copy(statusMessage = result.message) }
+                    updateUiState {
+                        copy(
+                            isFiringShot = false,
+                            statusMessage = result.message
+                        )
+                    }
                 }
             }
         }
@@ -255,14 +291,15 @@ class BattleshipViewModel : ViewModel() {
                 updateUiState {
                     copy(
                         gameOver = true,
-                        didIWin = false
+                        didIWin = false,
+                        isFiringShot = false
                     )
                 }
             } else {
-                updateUiState { copy(gameOver = true) }
+                updateUiState { copy(gameOver = true, isFiringShot = false) }
             }
         } else {
-            updateUiState { copy(gameOver = false, isMyTurn = true) }
+            updateUiState { copy(gameOver = false, isMyTurn = true, isFiringShot = false) }
         }
     }
 
@@ -281,6 +318,16 @@ class BattleshipViewModel : ViewModel() {
     private fun emitSoundEffect(effect: SoundEffect) {
         pendingSoundEffect = effect
         soundEventVersion++
+    }
+
+    private fun validateJoinInputs(player: String, key: String): String? = when {
+        player.length < MIN_JOIN_NAME_LENGTH && key.length < MIN_JOIN_NAME_LENGTH ->
+            "Player name and game name must be at least 3 characters"
+        player.length < MIN_JOIN_NAME_LENGTH ->
+            "Player name must be at least 3 characters"
+        key.length < MIN_JOIN_NAME_LENGTH ->
+            "Game name must be at least 3 characters"
+        else -> null
     }
 
     private fun normalizeBaseUrl(rawValue: String): String? {

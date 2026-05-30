@@ -18,12 +18,6 @@ The client handles:
 - receiving enemy shots from the backend
 - end-of-game feedback with themed audio
 
-## Running the project
-
-The application can be run on an Android emulator or a physical device, after the gradle project is imported in Android Studio.
-
-Current default DEFAULT_BASE_URL is set to "http://brad-home.ch:50003", but it can be changed in-game.
-
 ## User interface and flow
 
 ### 1. Welcome screen
@@ -84,6 +78,14 @@ When the game ends, the app displays a **You Won!** or **You Lost!** banner and 
 <img src="./images/gameplay.png" alt="Gameplay screen" width="250" />
 
 Gameplay screen on Google Pixel 9 Pro XL
+
+
+## Running the project
+
+The application can be run on an Android emulator or a physical device, after the gradle project is imported in Android Studio.
+
+Current default DEFAULT_BASE_URL is set to "http://brad-home.ch:50003", but it can be changed in-game.
+
 
 ## Architecture and structure
 
@@ -337,6 +339,8 @@ Audio playback is managed by `SoundManager`, which is started, paused, and relea
 The SoundManager implementation was created with the help of GitHub Copilot Plan mode, it helped me understand how the sound loop works, and also why the background music quality was crispy in the beginning.
 
 ## Tests
+
+The application was tested in an Android emulator and on a physical device (Google Pixel 9 Pro XL) to verify the UI and flows. The was tested against a local server and the remote server at `http://brad-home.ch:50003` as well.
 
 The repository includes unit and integration tests across three test classes:
 

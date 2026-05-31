@@ -1,4 +1,4 @@
-# Battleship Carrot
+# Battleship Carrot Edition
 
 **Author:** Noor Vinnai  
 **Course:** 26FS Mobile Applications with Android
@@ -25,6 +25,8 @@ The client handles:
 The first screen is the app start screen, which has a single Start button:
 
 <img src="./images/main-screen.png" width="200" />
+
+The "Battleship Carrot" title is drawn using a custom BubbleText composable in BattleShipApp, each word is rendered multiple times with small pixel offsets to create the outline and shadow for the text.
 
 ### 2. Ship placement screen
 

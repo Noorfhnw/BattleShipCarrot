@@ -15,8 +15,8 @@ class BattleshipApi {
         return try {
             val connection = apiUrl(baseUrl, "/ping").openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = 100000
-            connection.readTimeout = 100000
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
             connection.responseCode == 200
         } catch (_: Exception) {
             false

@@ -342,7 +342,10 @@ The SoundManager implementation was created with the help of GitHub Copilot Plan
 
 The application was tested in an Android emulator and on a physical device (Google Pixel 9 Pro XL) to verify the UI and flows. The was tested against a local server and the remote server at `http://brad-home.ch:50003` as well.
 
-The repository includes unit and integration tests across three test classes:
+The repository includes unit and integration tests across three test classes, and a GitHub Actions workflow for running tests.
+I learned about GitHub test automations from [Understanding YAML for GitHub Actions and Running tests](https://www.youtube.com/watch?v=yiq5SA2aTys) and the [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle) tutorial when I was working on another project during this semester (I was interested to learn more about GitHub because we had merge conflicts in our team project). I also found the dorny/test-reporter action when I was searching for example pipelines in GitHub.
+
+The test classes:
 
 ### `PlacedShipTest`
 
